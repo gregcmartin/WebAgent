@@ -3,7 +3,7 @@ import subprocess
 import threading
 
 def start_fastapi():
-    subprocess.run(["poetry", "run", "uvicorn", "src.oai_agent.oai_agent:app", "--reload"])
+    subprocess.run(["poetry", "run", "uvicorn", "src.oai_agent.oai_agent:app", "--reload", "--host", "0.0.0.0", "--port", "3030"])
 
 def start_vnc_client():
     subprocess.run(["docker", "run", "-p", "6080:6080", "my-vnc-server"])
