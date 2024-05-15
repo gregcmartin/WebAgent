@@ -3,6 +3,7 @@ from src.configs.logging.logging_config import setup_logging
 import locale
 from tzlocal import get_localzone_name
 import logging
+import os
 
 setup_logging()
 logger = logging.getLogger()
@@ -79,22 +80,28 @@ class WebDriver:
             system_locale = "en-US"
  
         try:
+            logger.info("Starting Playwright...")
             playwright = sync_playwright().start()
-            browser = playwright.chromium.launch_persistent_context(
-                user_data_dir="src/data/chrome_profile",
+            logger.info("Launching Chromium browser...")
+            browser = playwright.chromium.launch(
                 headless=False,
                 args=[
-                    "--remote-debugging-port=9222",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
                     "--disable-gpu",
-                    "--disable-dev-shm-usage", 
-                    "--no-sandbox", 
+                    "--disable-dev-shm-usage",
+                    "--remote-debugging-port=9222",
                     "--disable-web-security",
                     "--allow-running-insecure-content",
+                    f"--display={os.getenv('DISPLAY', ':99')}"
                 ],
-                locale=system_locale[0],
-                timezone_id=timezone_id,
+                env={
+                    "DISPLAY": os.getenv('DISPLAY', ':99')
+                }
             )
-            self.playwright = playwright
+            logger.info("Creating new browser context...")
+            context = browser.new_context()
+            logger.info("Opening new page...")
             self.browser = browser
             self.page = browser.new_page()
             self.page.set_viewport_size({"width": 960, "height": 1080})
