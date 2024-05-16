@@ -104,11 +104,11 @@ def get_response(prompt_request: PromptRequest):
         user_proxy = create_user_proxy();
         response = user_proxy.initiate_chat(gpt_assistant, message=prompt_request.prompt)
         # get the browser instance and close the browser once done
-        WebDriver.getInstance().closeDriver();
+        # WebDriver.getInstance().closeDriver();
         return {"response": response}
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}")   
-        WebDriver.getInstance().closeDriver();
+        # WebDriver.getInstance().closeDriver();
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 if __name__ == "__main__":
