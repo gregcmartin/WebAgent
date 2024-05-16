@@ -27,6 +27,7 @@ import json
 import requests
 
 from src.webdriver.webdriver import WebDriver
+from src.tools.utils.get_webdriver_instance import get_webdriver_instance
 
 app = FastAPI()
 
@@ -95,77 +96,20 @@ def create_user_proxy():
     return user_proxy
 
 
-@app.post("/launch-browser")
-def launch_browser():
-    try:
-        driver = WebDriver.getInstance()
-        page = driver.getDriver()
-        # Fetch all pages from the Chrome instance
-        response = requests.get("http://localhost:9222/json")
-        pages = response.json()
-
-        # Assuming the last page in the list is the right-most tab
-        if pages:
-            right_most_page = pages[-1]  # Get the last tab/page
-            if "webSocketDebuggerUrl" in right_most_page and right_most_page['type'] == 'page':
-                websocket_url = right_most_page["webSocketDebuggerUrl"]
-                return {"websocket_url": websocket_url, "right_most_page": right_most_page}
-            else:
-                raise Exception("Right-most page does not have a WebSocket URL")
-        else:
-            raise Exception("No pages found in the browser session")
-    except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-
-
 @app.post("/get-web-agent-response")
 def get_response(prompt_request: PromptRequest):
     try:
         gpt_assistant = configure_agent("BrowsingAgent")
         register_functions(gpt_assistant)
         user_proxy = create_user_proxy();
-
-        # driver = WebDriver.getInstance()
-        # page = driver.getDriver()
-        # page.goto("https://www.amazon.com/")
-
-        # page.waitFor(10000)
-
-        # response = {"data": "Hello, how can I help you?"}
         response = user_proxy.initiate_chat(gpt_assistant, message=prompt_request.prompt)
+        # get the browser instance and close the browser once done
+        WebDriver.getInstance().closeDriver();
         return {"response": response}
     except Exception as e:
-        logger.error(f"An error occurred: {str(e)}")
+        logger.error(f"An error occurred: {str(e)}")   
+        WebDriver.getInstance().closeDriver();
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
-
-@app.websocket("/cdp")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        # The URL should now be directly passed or managed correctly in the session
-        ws_url = await websocket.receive_text();
-
-        async with websockets.connect(ws_url) as browser_ws:
-            async def to_browser():
-                try:
-                    async for message in websocket.iter_text():
-                        await browser_ws.send(message)
-                except Exception as e:
-                    logger.error(f"Error in to_browser: {str(e)}")
-
-            async def from_browser():
-                try:
-                    async for message in browser_ws:
-                        await websocket.send_text(message)
-                except Exception as e:
-                    logger.error(f"Error in from_browser: {str(e)}")
-
-            await asyncio.gather(to_browser(), from_browser())
-    except Exception as e:
-        logger.error(f"WebSocket connection error: {str(e)}")
-        await websocket.close()
 
 if __name__ == "__main__":
     import uvicorn
