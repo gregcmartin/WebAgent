@@ -1,32 +1,63 @@
-FROM ubuntu:latest
+# Use an official Python runtime as a parent image
+FROM python:3.11-slim
 
-# Install necessary libraries for GUI, noVNC, and Python
-RUN apt-get update && \
-    apt-get install -y xvfb x11vnc lxde websockify wget python3 python3-pip python3-venv nodejs npm && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Set the working directory in the container
+WORKDIR /app
 
-# Set up a Python virtual environment and install Playwright
-RUN python3 -m venv /opt/venv
-# Activate virtual environment and install packages
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --upgrade pip
-RUN pip install playwright
-RUN playwright install
+# Install system dependencies required for a virtual display and VNC
+# and the dependencies needed for Playwright
+RUN apt-get update && apt-get install -y \
+    xvfb \
+    x11vnc \
+    websockify \
+    wget \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libatspi2.0-0 \
+    libgbm1 \
+    libxkbcommon0 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Download and extract noVNC
+# Install Python dependencies with Poetry
+# Copy poetry lock files and install dependencies directly using pip
+COPY pyproject.toml poetry.lock ./
+RUN pip install poetry && \
+    poetry export -f requirements.txt --output requirements.txt --without-hashes && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright
+RUN pip install playwright && \
+    playwright install
+
+# Download and set up noVNC
 RUN wget https://github.com/novnc/noVNC/archive/refs/tags/v1.3.0.tar.gz && \
     tar -xvzf v1.3.0.tar.gz && \
-    mv noVNC-1.3.0 /noVNC
+    mv noVNC-1.3.0 /noVNC && \
+    ln -s /noVNC/vnc_lite.html /noVNC/index.html
 
-# Copy custom vnc_auto.html
+# Copy the custom vnc_auto.html if any changes
 COPY vnc_auto.html /noVNC/vnc_auto.html
+
+# Copy the entire application source
+COPY . /app
 
 # Set environment variables
 ENV DISPLAY=:99
+ENV VNC_SERVER=localhost:5900
+ENV PYTHONPATH=/app
 
-# Start Xvfb, x11vnc, websockify, and keep the container running
+# Expose the necessary ports
+EXPOSE 3030 6080
+
+# Command to start services
 CMD Xvfb :99 -screen 0 1024x768x16 & \
     x11vnc -display :99 -forever -nopw -shared & \
     websockify --web /noVNC 6080 localhost:5900 & \
-    bash -c "while true; do sleep 1000; done"
+    uvicorn src.oai_agent.oai_agent:app --host 0.0.0.0 --port 3030 --reload
