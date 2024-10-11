@@ -57,7 +57,6 @@ ENV PYTHONPATH=/app
 EXPOSE 3030 6080
 
 # Command to start services
-CMD Xvfb :99 -screen 0 1024x768x16 & \
-    x11vnc -display :99 -forever -nopw -shared & \
-    websockify --web /noVNC 6080 localhost:5900 & \
-    uvicorn src.oai_agent.oai_agent:app --host 0.0.0.0 --port 3030 --reload
+# Command to start services
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1024x768x16 & x11vnc -display :99 -forever -nopw -shared & websockify --web /noVNC 6080 localhost:5900 & uvicorn src.oai_agent.oai_agent:app --host 0.0.0.0 --port 3030 --reload"]
+
